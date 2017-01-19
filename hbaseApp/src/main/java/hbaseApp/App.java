@@ -5,6 +5,13 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -76,13 +83,15 @@ public class App
 
 		String startTS = args[2];
 		String endTS = args[3];
+		int numResults = Integer.parseInt(args[4]);
+		String outputFolder = args[5];
 
 		byte[] initialKey = new byte[44];
 		System.arraycopy(Bytes.toBytes(startTS), 0, initialKey, 0, startTS.length());
 		byte[] finalKey = new byte[44];
 		System.arraycopy(Bytes.toBytes(endTS), 0, finalKey, 0, endTS.length());
 
-		Scan scan = new Scan(initialKey, finalKey);
+		HashMap<String, Long> results = new HashMap<String,Long>();
 
 		Configuration conf = HBaseConfiguration.create();
 		byte[] table = Bytes.toBytes(tableName);
@@ -90,15 +99,29 @@ public class App
 			HConnection conn = HConnectionManager.createConnection(conf);
 			HTable hTable = new HTable(TableName.valueOf(table), conn);
 
-			ResultScanner rs = hTable.getScanner(scan);
-			Result res = rs.next();
-			while (res != null && !res.isEmpty()){
-				byte[] bTopic = res.getValue(Bytes.toBytes("en"), Bytes.toBytes("TOPIC"));
-				byte[] bCount = res.getValue(Bytes.toBytes("en"), Bytes.toBytes("COUNT"));
-				String topic = Bytes.toString(bTopic);
-				String count = Bytes.toString(bCount);				
-				System.out.println("Read " + topic + " " + count);
-				res = rs.next();
+			int numFamilies = hTable.getTableDescriptor().getColumnFamilies().length;
+			for (int i = 0; i < numFamilies; i++) { // iterates column families
+				Scan scan = new Scan(initialKey, finalKey);
+				byte[] familyName = hTable.getTableDescriptor().getColumnFamilies()[i].getName();
+				scan.addFamily(familyName);
+
+				ResultScanner rs = hTable.getScanner(scan);
+				Result res = rs.next();
+				while (res != null && !res.isEmpty()){
+					byte[] bTopic = res.getValue(familyName, Bytes.toBytes("TOPIC"));
+					byte[] bCount = res.getValue(familyName, Bytes.toBytes("COUNT"));
+					String topic = Bytes.toString(bTopic);
+					String count = Bytes.toString(bCount);
+					if (results.get(topic) == null) {
+						results.put(topic, Long.parseLong(count));
+					}
+					else {
+						long oldValue = results.get(topic);
+						results.put(topic, oldValue + Long.parseLong(count));
+					}
+
+					res = rs.next();
+				}
 			}
 
 			hTable.close();
@@ -107,6 +130,30 @@ public class App
 			e.printStackTrace();
 		}
 
+		printTopN(startTS, endTS, numResults, outputFolder, results);
+
+	}
+
+	private void printTopN(String startTS, String endTS, int numResults, String outputFolder, HashMap<String, Long> results){
+		Set<Entry<String, Long>> resultsSet = results.entrySet();
+		List<Entry<String, Long>> resultsList = new ArrayList<Entry<String, Long>>(resultsSet);
+		Collections.sort(resultsList, new Comparator<Map.Entry<String, Long>>() {
+			public int compare(Map.Entry<String, Long> o1, Map.Entry<String, Long> o2) {
+				if(o2.getValue() > o1.getValue()) {
+					return 1;
+				} else if (o2.getValue() < o1.getValue()) {
+					return -1;
+				} else if (o2.getValue() == o1.getValue()) {
+					return o1.getKey().compareTo(o2.getKey());
+				} else {
+					return 0;
+				}
+			}
+		});
+
+		for (int i = 0; i < numResults && i < resultsList.size(); i++) {
+			System.out.println(i + "," + resultsList.get(i).getKey()+ "," + startTS + "," + endTS);
+		}
 	}
 
 	/**
@@ -180,8 +227,8 @@ public class App
 				} 
 			}
 
-			//			admin.disableTable(tableName);
-			//			admin.deleteTable(tableName);
+			//	admin.disableTable(tableName);
+			//	admin.deleteTable(tableName);
 
 		} catch (MasterNotRunningException e1) {
 			e1.printStackTrace();
