@@ -1,8 +1,10 @@
 package hbaseApp;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -134,6 +136,14 @@ public class App
 
 	}
 
+	/**
+	 * Prints topN results in output file
+	 * @param startTS
+	 * @param endTS
+	 * @param numResults
+	 * @param outputFolder
+	 * @param results
+	 */
 	private void printTopN(String startTS, String endTS, int numResults, String outputFolder, HashMap<String, Long> results){
 		Set<Entry<String, Long>> resultsSet = results.entrySet();
 		List<Entry<String, Long>> resultsList = new ArrayList<Entry<String, Long>>(resultsSet);
@@ -151,8 +161,19 @@ public class App
 			}
 		});
 
-		for (int i = 0; i < numResults && i < resultsList.size(); i++) {
-			System.out.println(i + "," + resultsList.get(i).getKey()+ "," + startTS + "," + endTS);
+		File outputFile = new File(outputFolder + "/13_query3.out");
+		BufferedWriter writer;
+		try {
+			writer = new BufferedWriter(new FileWriter(outputFile, true));
+			for (int i = 0; i < numResults && i < resultsList.size(); i++) {
+				writer.append(i + "," + resultsList.get(i).getKey() + "," + startTS + "," + endTS);
+				writer.newLine();
+
+				//System.out.println(i + "," + resultsList.get(i).getKey() + "," + startTS + "," + endTS);
+			}
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -189,18 +210,18 @@ public class App
 		try {
 			admin = new HBaseAdmin(conf);
 			if (!admin.tableExists(tableName)) {
-				System.out.println("Creating table " + tableName);
+				//System.out.println("Creating table " + tableName);
 				HTableDescriptor tableDesc = new HTableDescriptor(TableName.valueOf(table));
 				for (int i = 0; i < languages.size(); i++) {
-					System.out.println("Creating family " + languages.get(i));
+					//System.out.println("Creating family " + languages.get(i));
 					byte[] columnD = Bytes.toBytes(languages.get(i));
 					HColumnDescriptor family = new HColumnDescriptor(columnD);
 					tableDesc.addFamily(family);
 				}
 				admin.createTable(tableDesc);
-				System.out.println("Table " + tableName + " created");
+				//System.out.println("Table " + tableName + " created");
 			} else {
-				System.out.println("Table " + tableName + " already exists in HBase");
+				//System.out.println("Table " + tableName + " already exists in HBase");
 			}
 
 			// Opens table
@@ -259,8 +280,7 @@ public class App
 			put.add(Bytes.toBytes(lang), Bytes.toBytes("COUNT"), Bytes.toBytes(count));
 			hTable.put(put);
 
-			System.out.println("Inserted " + topic + " " + count);
-
+			//System.out.println("Inserted " + topic + " " + count);
 		}
 	}
 }
