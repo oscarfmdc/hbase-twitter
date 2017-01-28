@@ -31,9 +31,6 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.CompareFilter;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 
 public class App 
@@ -96,13 +93,12 @@ public class App
 		System.arraycopy(Bytes.toBytes(startTS), 0, initialKey, 0, startTS.length());
 		byte[] finalKey = new byte[44];
 		System.arraycopy(Bytes.toBytes(endTS), 0, finalKey, 0, endTS.length());
-		byte[] selectedLang = new byte[44];
-		System.arraycopy(Bytes.toBytes(languageUsed), 0, selectedLang, 0, languageUsed.length());
+		byte[] selectedLang = Bytes.toBytes(languageUsed);
 
 		HashMap<String, Long> results = new HashMap<String,Long>();
-
 		Configuration conf = HBaseConfiguration.create();
 		byte[] table = Bytes.toBytes(tableName);
+
 		try {			
 			HConnection conn = HConnectionManager.createConnection(conf);
 			HTable hTable = new HTable(TableName.valueOf(table), conn);
@@ -118,11 +114,11 @@ public class App
 				String topic = Bytes.toString(bTopic);
 				String count = Bytes.toString(bCount);
 				if (results.get(topic) == null) {
-					results.put(Bytes.toString(selectedLang)+","+topic, Long.parseLong(count));
+					results.put(Bytes.toString(selectedLang) + "," + topic, Long.parseLong(count));
 				}
 				else {
 					long oldValue = results.get(topic);
-					results.put(Bytes.toString(selectedLang)+","+ topic, oldValue + Long.parseLong(count));
+					results.put(Bytes.toString(selectedLang) + "," + topic, oldValue + Long.parseLong(count));
 				}
 
 				res = rs.next();
@@ -167,13 +163,6 @@ public class App
 
 		String[] langAndTopic = languageUsed.split(",");
 		ArrayList<byte[]> everyLanguage = new ArrayList<byte[]>();
-		for(int i = 0; i< langAndTopic.length; i ++){
-			byte[] selectedLang = new byte[44];
-			//System.arraycopy(Bytes.toBytes(languageUsed), 0, selectedLang, 0, languageUsed);
-			System.arraycopy(Bytes.toBytes(langAndTopic[i]), 0, selectedLang, 0, langAndTopic[i].length());
-			everyLanguage.add(selectedLang);
-		}
-
 
 		HashMap<String, Long> results = new HashMap<String,Long>();
 
@@ -183,11 +172,22 @@ public class App
 			HConnection conn = HConnectionManager.createConnection(conf);
 			HTable hTable = new HTable(TableName.valueOf(table), conn);
 
-			Scan scan = new Scan(initialKey, finalKey);
-			for(int i = 0; i < everyLanguage.size();i++){
-				
+			int numFamilies = hTable.getTableDescriptor().getColumnFamilies().length;
+
+			for(int i = 0; i < langAndTopic.length; i++){
+				for (int j = 0; j < numFamilies; j++) { // iterates column families
+					byte[] familyName = hTable.getTableDescriptor().getColumnFamilies()[j].getName();
+					if (langAndTopic[i].equals(new String(familyName))) {
+						byte[] selectedLang = Bytes.toBytes(langAndTopic[i]);
+						everyLanguage.add(selectedLang);
+						break;
+					}
+				}
+			}
+
+			for(int i = 0; i < everyLanguage.size(); i++){
+				Scan scan = new Scan(initialKey, finalKey);
 				byte[] auxFamily = everyLanguage.get(i);
-				
 				scan.addFamily(auxFamily);
 
 				ResultScanner rs = hTable.getScanner(scan);
@@ -197,12 +197,12 @@ public class App
 					byte[] bCount = res.getValue(auxFamily, Bytes.toBytes("COUNT"));
 					String topic = Bytes.toString(bTopic);
 					String count = Bytes.toString(bCount);
-					if (results.get(topic) == null) {
-						results.put(Bytes.toString(auxFamily)+","+topic, Long.parseLong(count));
+					if (results.get(topic) == null) { // store as new topic
+						results.put(Bytes.toString(auxFamily) + "," + topic, Long.parseLong(count));
 					}
 					else {
 						long oldValue = results.get(topic);
-						results.put(Bytes.toString(auxFamily)+","+ topic, oldValue + Long.parseLong(count));
+						results.put(Bytes.toString(auxFamily) + "," + topic, oldValue + Long.parseLong(count));
 					}
 
 					res = rs.next();
@@ -323,12 +323,10 @@ public class App
 		case 2:
 			nameFile = "/13_query2.out";
 			break;
-
 		case 3:
 			nameFile = "/13_query3.out";
 			break;
 		}
-
 
 		File outputFile = new File(outputFolder + nameFile);
 		BufferedWriter writer;
