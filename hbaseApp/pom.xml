@@ -45,7 +45,7 @@
 					</platforms>
 					<programs>
 						<program>
-							<mainClass>App</mainClass>
+							<mainClass>hbaseApp.App</mainClass>
 							<name>hbaseApp.sh</name>
 							<jvmSettings>
 								<extraArguments>
