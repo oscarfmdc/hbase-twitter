@@ -83,6 +83,7 @@ public class App
 			System.exit(1);
 		}
 
+		String[] zookeeper = args[1].split(":");
 		String startTS = args[2];
 		String endTS = args[3];
 		int numResults = Integer.parseInt(args[4]);
@@ -97,6 +98,9 @@ public class App
 
 		HashMap<String, Long> results = new HashMap<String,Long>();
 		Configuration conf = HBaseConfiguration.create();
+		conf.set("hbase.zookeeper.quorum", zookeeper[0]);
+		conf.set("hbase.zookeeper.property.clientPort", zookeeper[1]);
+
 		byte[] table = Bytes.toBytes(tableName);
 
 		try {			
@@ -150,6 +154,7 @@ public class App
 			System.exit(1);
 		}
 
+		String[] zookeeper = args[1].split(":");
 		String startTS = args[2];
 		String endTS = args[3];
 		int numResults = Integer.parseInt(args[4]);
@@ -167,6 +172,9 @@ public class App
 		HashMap<String, Long> results = new HashMap<String,Long>();
 
 		Configuration conf = HBaseConfiguration.create();
+		conf.set("hbase.zookeeper.quorum", zookeeper[0]);
+		conf.set("hbase.zookeeper.property.clientPort", zookeeper[1]);
+
 		byte[] table = Bytes.toBytes(tableName);
 		try {			
 			HConnection conn = HConnectionManager.createConnection(conf);
@@ -236,6 +244,7 @@ public class App
 			System.exit(1);
 		}
 
+		String[] zookeeper = args[1].split(":");
 		String startTS = args[2];
 		String endTS = args[3];
 		int numResults = Integer.parseInt(args[4]);
@@ -249,6 +258,9 @@ public class App
 		HashMap<String, Long> results = new HashMap<String,Long>();
 
 		Configuration conf = HBaseConfiguration.create();
+		conf.set("hbase.zookeeper.quorum", zookeeper[0]);
+		conf.set("hbase.zookeeper.property.clientPort", zookeeper[1]);
+
 		byte[] table = Bytes.toBytes(tableName);
 		try {
 			HConnection conn = HConnectionManager.createConnection(conf);
@@ -376,8 +388,12 @@ public class App
 			}
 		}
 
+		String[] zookeeper = args[1].split(":");
+
 		// Creates a table in HBase
 		Configuration conf = HBaseConfiguration.create();
+		conf.set("hbase.zookeeper.quorum", zookeeper[0]);
+		conf.set("hbase.zookeeper.property.clientPort", zookeeper[1]);
 		HBaseAdmin admin;
 		byte[] table = Bytes.toBytes(tableName);
 
@@ -422,8 +438,8 @@ public class App
 				} 
 			}
 
-			//	admin.disableTable(tableName);
-			//	admin.deleteTable(tableName);
+			// admin.disableTable(tableName);
+			// admin.deleteTable(tableName);
 
 		} catch (MasterNotRunningException e1) {
 			e1.printStackTrace();
