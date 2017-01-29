@@ -94,7 +94,7 @@ public class App
 		System.arraycopy(Bytes.toBytes(startTS), 0, initialKey, 0, startTS.length());
 		byte[] finalKey = new byte[44];
 		System.arraycopy(Bytes.toBytes(endTS), 0, finalKey, 0, endTS.length());
-		byte[] selectedLang = Bytes.toBytes(languageUsed);
+
 
 		HashMap<String, Long> results = new HashMap<String,Long>();
 		Configuration conf = HBaseConfiguration.create();
@@ -108,6 +108,7 @@ public class App
 			HTable hTable = new HTable(TableName.valueOf(table), conn);
 
 			Scan scan = new Scan(initialKey, finalKey);
+			byte[] selectedLang = Bytes.toBytes(languageUsed);
 			scan.addFamily(selectedLang);
 
 			ResultScanner rs = hTable.getScanner(scan);
@@ -118,11 +119,11 @@ public class App
 				String topic = Bytes.toString(bTopic);
 				String count = Bytes.toString(bCount);
 				if (results.get(topic) == null) {
-					results.put(Bytes.toString(selectedLang) + "," + topic, Long.parseLong(count));
+					results.put(topic, Long.parseLong(count));
 				}
 				else {
 					long oldValue = results.get(topic);
-					results.put(Bytes.toString(selectedLang) + "," + topic, oldValue + Long.parseLong(count));
+					results.put(topic, oldValue + Long.parseLong(count));
 				}
 
 				res = rs.next();
@@ -134,7 +135,7 @@ public class App
 		}
 
 
-		printTopN(startTS, endTS, numResults, outputFolder, results, 1);
+		printTopN(startTS, endTS, numResults, outputFolder, results, 1, languageUsed);
 
 	}
 
@@ -206,26 +207,23 @@ public class App
 					String topic = Bytes.toString(bTopic);
 					String count = Bytes.toString(bCount);
 					if (results.get(topic) == null) { // store as new topic
-						results.put(Bytes.toString(auxFamily) + "," + topic, Long.parseLong(count));
+						results.put(topic, Long.parseLong(count));
 					}
 					else {
 						long oldValue = results.get(topic);
-						results.put(Bytes.toString(auxFamily) + "," + topic, oldValue + Long.parseLong(count));
+						results.put(topic, oldValue + Long.parseLong(count));
 					}
 
 					res = rs.next();
 				}
+				printTopN(startTS, endTS, numResults, outputFolder, results, 2, new String(auxFamily));
+				results.clear();
 			}
 			hTable.close();
 
 		}catch (IOException e) {
 			e.printStackTrace();
 		}
-
-
-		printTopN(startTS, endTS, numResults, outputFolder, results, 2);
-
-
 	}
 
 
@@ -298,7 +296,7 @@ public class App
 		}
 
 
-		printTopN(startTS, endTS, numResults, outputFolder, results, 3);
+		printTopN(startTS, endTS, numResults, outputFolder, results, 3, null);
 
 	}
 
@@ -310,7 +308,7 @@ public class App
 	 * @param outputFolder
 	 * @param results
 	 */
-	private void printTopN(String startTS, String endTS, int numResults, String outputFolder, HashMap<String, Long> results, int functionSource){
+	private void printTopN(String startTS, String endTS, int numResults, String outputFolder, HashMap<String, Long> results, int functionSource, String lang){
 		Set<Entry<String, Long>> resultsSet = results.entrySet();
 		List<Entry<String, Long>> resultsList = new ArrayList<Entry<String, Long>>(resultsSet);
 		Collections.sort(resultsList, new Comparator<Map.Entry<String, Long>>() {
@@ -346,13 +344,13 @@ public class App
 			writer = new BufferedWriter(new FileWriter(outputFile, true));
 			for (int i = 0; i < numResults && i < resultsList.size(); i++) {
 
-				if(functionSource == 3){
-					writer.append(i + "," + resultsList.get(i).getKey() + "," + startTS + "," + endTS);
-				}
-				else{
-					String[] langAndTopic = resultsList.get(i).getKey().split(",");	
-					writer.append(langAndTopic[0] + "," + i + "," + langAndTopic[1] + "," + startTS + "," + endTS);
-				}
+				if (functionSource == 3) {
+					writer.append(i+1 + "," + resultsList.get(i).getKey() + "," + startTS + "," + endTS);
+				} 
+				else {
+					writer.append(lang + "," + (i+1) + "," + resultsList.get(i).getKey() + "," + startTS + "," + endTS);
+				}	
+
 				writer.newLine();
 
 				//System.out.println(i + "," + resultsList.get(i).getKey() + "," + startTS + "," + endTS);
